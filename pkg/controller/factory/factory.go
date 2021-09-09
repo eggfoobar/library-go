@@ -238,7 +238,7 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 
 	// Warn about too fast resyncs as they might drain the operators QPS.
 	// This event is cheap as it is only emitted on operator startup.
-	if c.resyncEvery.Seconds() < 60 {
+	if c.resyncEvery.Seconds() < 60 && c.resyncEvery.Seconds() > 0 {
 		ctx.Recorder().Warningf("FastControllerResync", "Controller %q resync interval is set to %s which might lead to client request throttling", name, c.resyncEvery)
 	}
 
