@@ -90,7 +90,7 @@ func NewStaticResourceController(
 
 		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(name)),
 
-		factory: factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
+		factory: factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(5 * time.Minute),
 	}
 
 	return c
