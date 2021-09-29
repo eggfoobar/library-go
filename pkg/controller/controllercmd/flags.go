@@ -3,6 +3,7 @@ package controllercmd
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
@@ -28,6 +29,8 @@ type ControllerFlags struct {
 	BindAddress string
 	// TerminateOnFiles is a list of files. If any of these changes, the process terminates.
 	TerminateOnFiles []string
+	// fileReader used to support custom file reader for testing
+	fileReader fs.ReadFileFS
 }
 
 // NewControllerFlags returns flags with default values set
@@ -62,7 +65,7 @@ func (f *ControllerFlags) ToConfigObj() ([]byte, *unstructured.Unstructured, err
 		return nil, nil, nil
 	}
 
-	content, err := ioutil.ReadFile(f.ConfigFile)
+	content, err := f.readFile(f.ConfigFile)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -86,6 +89,14 @@ func (f *ControllerFlags) ToConfigObj() ([]byte, *unstructured.Unstructured, err
 // ToClientConfig given completed flags, returns a rest.Config.  overrides are optional
 func (f *ControllerFlags) ToClientConfig(overrides *client.ClientConnectionOverrides) (*rest.Config, error) {
 	return client.GetKubeConfigOrInClusterConfig(f.KubeConfigFile, overrides)
+}
+
+// Support ability to use custom file readers, currently used for easier testing
+func (f *ControllerFlags) readFile(fileName string) ([]byte, error) {
+	if f.fileReader != nil {
+		return f.fileReader.ReadFile(fileName)
+	}
+	return ioutil.ReadFile(fileName)
 }
 
 // ReadYAML decodes a runtime.Object from the provided scheme
