@@ -162,6 +162,15 @@ func (c *ControllerCommandConfig) Config() (*unstructured.Unstructured, *operato
 			return nil, nil, nil, err
 		}
 	}
+
+	if c.DisableLeaderElection {
+		config.LeaderElection.Disable = true
+	}
+
+	if len(c.basicFlags.BindAddress) != 0 {
+		config.ServingInfo.BindAddress = c.basicFlags.BindAddress
+	}
+
 	return unstructuredConfig, config, configContent, nil
 }
 
@@ -261,10 +270,6 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 		return err
 	}
 
-	if len(c.basicFlags.BindAddress) != 0 {
-		config.ServingInfo.BindAddress = c.basicFlags.BindAddress
-	}
-
 	exitOnChangeReactorCh := make(chan struct{})
 	controllerCtx, cancel := context.WithCancel(ctx)
 	go func() {
@@ -275,8 +280,6 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 			cancel()
 		}
 	}()
-
-	config.LeaderElection.Disable = c.DisableLeaderElection
 
 	builder := NewController(c.componentName, c.startFunc).
 		WithKubeConfigFile(c.basicFlags.KubeConfigFile, nil).
