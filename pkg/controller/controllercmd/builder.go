@@ -13,6 +13,7 @@ import (
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer"
 	"github.com/openshift/library-go/pkg/config/client"
+	"github.com/openshift/library-go/pkg/config/clusterstatus"
 	"github.com/openshift/library-go/pkg/config/configdefaults"
 	leaderelectionconverter "github.com/openshift/library-go/pkg/config/leaderelection"
 	"github.com/openshift/library-go/pkg/config/serving"
@@ -313,6 +314,14 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 		return err
 	}
 
+	infraStatus, err := clusterstatus.GetClusterStatus(ctx, clientConfig)
+	if err != nil {
+		eventRecorder.Warningf("ClusterInfrastructureInfo", "Failed to get cluster info because of %s", err)
+		klog.Warningf("unable to get cluster status for leader election (falling back to default): %v", err)
+	} else {
+		mutateLeaderElection(&leaderElection, infraStatus)
+	}
+
 	// 10s is the graceful termination time we give the controllers to finish their workers.
 	// when this time pass, we exit with non-zero code, killing all controller workers.
 	// NOTE: The pod must set the termination graceful time.
@@ -369,4 +378,12 @@ func (b *ControllerBuilder) getClientConfig() (*rest.Config, error) {
 	}
 
 	return client.GetKubeConfigOrInClusterConfig(kubeconfig, b.clientOverrides)
+}
+
+func mutateLeaderElection(leaderElection *leaderelection.LeaderElectionConfig, infraStatus *configv1.InfrastructureStatus) {
+	if infraStatus.ControlPlaneTopology == configv1.SingleReplicaTopologyMode {
+		leaderElection.RetryPeriod = 60 * time.Second
+		leaderElection.LeaseDuration = 270 * time.Second
+		leaderElection.RenewDeadline = 240 * time.Second
+	}
 }
