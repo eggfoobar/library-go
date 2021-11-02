@@ -10,12 +10,14 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const infraResourceName = "cluster"
+
 func GetClusterStatus(ctx context.Context, restClient *rest.Config) (*configv1.InfrastructureStatus, error) {
 	client, err := openshiftcorev1.NewForConfig(restClient)
 	if err != nil {
 		return nil, err
 	}
-	infra, err := client.Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+	infra, err := client.Infrastructures().Get(ctx, infraResourceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
