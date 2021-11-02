@@ -305,6 +305,15 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 		return nil
 	}
 
+	infraStatus, err := clusterstatus.GetClusterStatus(ctx, clientConfig)
+	if err != nil {
+		eventRecorder.Warningf("ClusterInfrastructureInfo", "Failed to get cluster info because of %s", err)
+		klog.Warningf("unable to get cluster status for leader election (falling back to default): %v", err)
+	} else if infraStatus.ControlPlaneTopology == configv1.SingleReplicaTopologyMode {
+		snoLeaderElection := leaderelectionconverter.LeaderElectionSNOConfig(*b.leaderElection)
+		b.leaderElection = &snoLeaderElection
+	}
+
 	// ensure blocking TCP connections don't block the leader election
 	leaderConfig := rest.CopyConfig(protoConfig)
 	leaderConfig.Timeout = b.leaderElection.RenewDeadline.Duration
@@ -312,14 +321,6 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 	leaderElection, err := leaderelectionconverter.ToConfigMapLeaderElection(leaderConfig, *b.leaderElection, b.componentName, b.instanceIdentity)
 	if err != nil {
 		return err
-	}
-
-	infraStatus, err := clusterstatus.GetClusterStatus(ctx, clientConfig)
-	if err != nil {
-		eventRecorder.Warningf("ClusterInfrastructureInfo", "Failed to get cluster info because of %s", err)
-		klog.Warningf("unable to get cluster status for leader election (falling back to default): %v", err)
-	} else {
-		mutateLeaderElection(&leaderElection, infraStatus)
 	}
 
 	// 10s is the graceful termination time we give the controllers to finish their workers.
@@ -378,12 +379,4 @@ func (b *ControllerBuilder) getClientConfig() (*rest.Config, error) {
 	}
 
 	return client.GetKubeConfigOrInClusterConfig(kubeconfig, b.clientOverrides)
-}
-
-func mutateLeaderElection(leaderElection *leaderelection.LeaderElectionConfig, infraStatus *configv1.InfrastructureStatus) {
-	if infraStatus.ControlPlaneTopology == configv1.SingleReplicaTopologyMode {
-		leaderElection.RetryPeriod = 60 * time.Second
-		leaderElection.LeaseDuration = 270 * time.Second
-		leaderElection.RenewDeadline = 240 * time.Second
-	}
 }

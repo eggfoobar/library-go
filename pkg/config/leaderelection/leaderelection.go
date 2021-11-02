@@ -124,3 +124,13 @@ func LeaderElectionDefaulting(config configv1.LeaderElection, defaultNamespace, 
 	}
 	return ret
 }
+
+// LeaderElectionSNOConfig uses the formula derived in LeaderElectionDefaulting with increased
+// retry period and lease duration for SNO clusters that have limited resources
+func LeaderElectionSNOConfig(config configv1.LeaderElection) configv1.LeaderElection {
+	ret := *(&config).DeepCopy()
+	ret.LeaseDuration.Duration = 270 * time.Second
+	ret.RenewDeadline.Duration = 240 * time.Second
+	ret.RetryPeriod.Duration = 60 * time.Second
+	return ret
+}
